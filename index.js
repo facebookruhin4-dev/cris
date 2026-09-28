@@ -2,19 +2,44 @@ const express = require('express');
 const login = require('cyber-bot-fca');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 const app = express();
 const port = process.env.PORT || 10000;
 
 app.get('/', (req, res) => {
-  res.send('Bot is Alive & Running!');
+  res.send('Bot is Always Active & Alive!');
 });
 
 app.listen(port, () => {
   console.log(`💡 Web Server running on port ${port}`);
 });
 
-// ফাইল লোড করা
+// -------------------------------------------------------------
+// Render Anti-Sleep Auto-Ping (বটকে সবসময় ২৪/৭ সচল রাখার জন্য)
+// -------------------------------------------------------------
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://cris-kezx.onrender.com';
+
+setInterval(() => {
+  https.get(RENDER_URL, (res) => {
+    console.log(`🔄 Keep-Alive Trigger Sent! Status Code: ${res.statusCode}`);
+  }).on('error', (err) => {
+    console.error('❌ Keep-Alive Trigger Error:', err.message);
+  });
+}, 3 * 60 * 1000); // প্রতি ৩ মিনিটে পিং পাঠাবে
+
+// -------------------------------------------------------------
+// Uncaught Exception Handling (বট যেন ক্র্যাশ করে বন্ধ না হয়)
+// -------------------------------------------------------------
+process.on('uncaughtException', (err) => {
+  console.error('🚨 Caught Exception (Bot Preventing Crash):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// মডিউল লোডিং
 let galiModule, warningModule, welcomeModule;
 
 try {
@@ -71,7 +96,7 @@ function startBot() {
 
   login({ appState }, options, (err, api) => {
     if (err) {
-      console.error('❌ লগইন ব্যর্থ হয়েছে:', err);
+      console.error('❌ লগইন ব্যর্থ হয়েছে! ৫ সেকেন্ড পর অটো-রিস্টার্ট হচ্ছে...:', err);
       setTimeout(startBot, 5000);
       return;
     }
@@ -80,40 +105,53 @@ function startBot() {
 
     api.listenMqtt((listenErr, event) => {
       if (listenErr) {
-        console.error('🚨 MQTT Listen Error:', listenErr);
+        console.error('🚨 MQTT Listen Error! অটো-রিকানেক্ট চেষ্টা করা হচ্ছে...:', listenErr);
+        setTimeout(startBot, 5000);
         return;
       }
 
       console.log(`📥 Event Received: Type = [${event.type}] | LogType = [${event.logMessageType || 'none'}]`);
 
-      // ১. কেউ গ্রুপে জয়েন করলে (welcome.js)
-      if (event.type === 'event' && event.logMessageType === 'log:subscribe') {
+      // ১. ওয়েলকাম ইভেন্ট হ্যান্ডলার (সব ধরণের সাবস্ক্রাইব ও জয়েন ইভেন্ট কভার করবে)
+      const isSubscribe = event.type === 'event' || 
+                          event.logMessageType === 'log:subscribe' || 
+                          event.logMessageType === 'log:user-id';
+
+      if (isSubscribe) {
         if (welcomeModule && typeof welcomeModule.sendWelcomeMessage === 'function') {
-          welcomeModule.sendWelcomeMessage(api, event);
+          try {
+            welcomeModule.sendWelcomeMessage(api, event);
+            console.log('🎉 Welcome Message Triggered Successfully!');
+          } catch (welErr) {
+            console.error('❌ Error in welcome.js execution:', welErr);
+          }
         }
       }
 
-      // ২. কেউ মেসেজ পাঠালে (gali.js ও warning.js)
+      // ২. মেসেজ প্রসেসিং (gali.js ও warning.js)
       if (event.type === 'message' || event.type === 'message_reply') {
         const body = event.body ? event.body.trim() : '';
         if (!body) return;
 
-        // গালাগালি চেক করা (gali.js এর isGali ফাংশন কল)
+        // গালাগালি ডিটেকশন
         if (galiModule && typeof galiModule.isGali === 'function') {
           const hasGali = galiModule.isGali(body);
 
           if (hasGali) {
             console.log(`⚠️ Bad word detected from User [${event.senderID}]: "${body}"`);
             
-            // ওয়ার্নিং ও কিক হ্যান্ডলার কল (warning.js এর handleWarningAndKick)
             if (warningModule && typeof warningModule.handleWarningAndKick === 'function') {
-              warningModule.handleWarningAndKick(api, event);
+              try {
+                warningModule.handleWarningAndKick(api, event);
+              } catch (warnErr) {
+                console.error('❌ Error in warning.js execution:', warnErr);
+              }
             }
-            return; // গালাগালি থাকলে নিচের সাধারণ রেসপন্স করবে না
+            return;
           }
         }
 
-        // সাধারণ রেসপন্স / টেস্ট
+        // সাধারণ উত্তর
         const text = body.toLowerCase();
         if (text === 'hi' || text === 'hello' || text === 'হাই' || text === 'হ্যালো') {
           api.sendMessage('হ্যালো ওস্তাদ! আমি অন আছি, কীভাবে সাহায্য করতে পারি?', event.threadID);
