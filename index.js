@@ -14,26 +14,28 @@ app.listen(port, () => {
   console.log(`💡 Web Server running on port ${port}`);
 });
 
-// -------------------------------------------------------------
-// আপনার লোকাল ফাইলসমূহ লোড করা হচ্ছে
-// -------------------------------------------------------------
-let galiHandler, warningHandler, welcomeHandler;
+// ফাইল লোড করা
+let galiModule, warningModule, welcomeModule;
 
 try {
-  if (fs.existsSync(path.join(__dirname, 'gali.js'))) {
-    galiHandler = require('./gali');
-    console.log('✅ gali.js ফাইল সফলভাবে লোড হয়েছে');
-  }
-  if (fs.existsSync(path.join(__dirname, 'warning.js'))) {
-    warningHandler = require('./warning');
-    console.log('✅ warning.js ফাইল সফলভাবে লোড হয়েছে');
-  }
-  if (fs.existsSync(path.join(__dirname, 'welcome.js'))) {
-    welcomeHandler = require('./welcome');
-    console.log('✅ welcome.js ফাইল সফলভাবে লোড হয়েছে');
-  }
+  galiModule = require('./gali');
+  console.log('✅ Loaded gali.js');
 } catch (e) {
-  console.error('❌ ফাইল লোড করতে সমস্যা হয়েছে:', e);
+  console.error('❌ gali.js load error:', e.message);
+}
+
+try {
+  warningModule = require('./warning');
+  console.log('✅ Loaded warning.js');
+} catch (e) {
+  console.error('❌ warning.js load error:', e.message);
+}
+
+try {
+  welcomeModule = require('./welcome');
+  console.log('✅ Loaded welcome.js');
+} catch (e) {
+  console.error('❌ welcome.js load error:', e.message);
 }
 
 function startBot() {
@@ -43,7 +45,7 @@ function startBot() {
     try {
       appState = JSON.parse(process.env.APPSTATE);
     } catch (e) {
-      console.error('❌ Render Environment Variable-এর APPSTATE JSON সঠিক নয়!');
+      console.error('❌ APPSTATE JSON ভুল!');
       return;
     }
   } else {
@@ -52,11 +54,11 @@ function startBot() {
       try {
         appState = JSON.parse(fs.readFileSync(appStatePath, 'utf8'));
       } catch (e) {
-        console.error('❌ appstate.json ফাইলের JSON স্ট্রাকচার ভুল!');
+        console.error('❌ appstate.json এর JSON ভুল!');
         return;
       }
     } else {
-      console.error('❌ appstate.json বা APPSTATE ভেরিয়েবল পাওয়া যায়নি!');
+      console.error('❌ appstate.json বা APPSTATE ভেরিয়াবল পাওয়া যায়নি!');
       return;
     }
   }
@@ -69,7 +71,7 @@ function startBot() {
 
   login({ appState }, options, (err, api) => {
     if (err) {
-      console.error('❌ লগইন ব্যর্থ হয়েছে! কারণ:', err);
+      console.error('❌ লগইন ব্যর্থ হয়েছে:', err);
       setTimeout(startBot, 5000);
       return;
     }
@@ -82,55 +84,43 @@ function startBot() {
         return;
       }
 
-      console.log(`📥 Event Received: Type = [${event.type}]`);
+      console.log(`📥 Event Received: Type = [${event.type}] | LogType = [${event.logMessageType || 'none'}]`);
 
-      // ১. ওয়েলকাম / নতুন মেম্বার জয়েন ইভেন্ট (welcome.js)
-      if (event.type === 'event' || event.logMessageType === 'log:subscribe') {
-        if (welcomeHandler) {
-          if (typeof welcomeHandler === 'function') {
-            welcomeHandler({ api, event });
-          } else if (welcomeHandler.run) {
-            welcomeHandler.run({ api, event });
-          }
+      // ১. কেউ গ্রুপে জয়েন করলে (welcome.js)
+      if (event.type === 'event' && event.logMessageType === 'log:subscribe') {
+        if (welcomeModule && typeof welcomeModule.sendWelcomeMessage === 'function') {
+          welcomeModule.sendWelcomeMessage(api, event);
         }
       }
 
-      // ২. মেসেজ ইভেন্ট (gali.js, warning.js এবং অন্যান্য)
+      // ২. কেউ মেসেজ পাঠালে (gali.js ও warning.js)
       if (event.type === 'message' || event.type === 'message_reply') {
         const body = event.body ? event.body.trim() : '';
-        const senderID = event.senderID;
-        const threadID = event.threadID;
-
         if (!body) return;
 
-        console.log(`💬 Message From [${senderID}] in Thread [${threadID}]: "${body}"`);
+        // গালাগালি চেক করা (gali.js এর isGali ফাংশন কল)
+        if (galiModule && typeof galiModule.isGali === 'function') {
+          const hasGali = galiModule.isGali(body);
 
-        // gali.js হ্যান্ডলার রান
-        if (galiHandler) {
-          if (typeof galiHandler === 'function') {
-            galiHandler({ api, event, body });
-          } else if (galiHandler.run) {
-            galiHandler.run({ api, event, body });
+          if (hasGali) {
+            console.log(`⚠️ Bad word detected from User [${event.senderID}]: "${body}"`);
+            
+            // ওয়ার্নিং ও কিক হ্যান্ডলার কল (warning.js এর handleWarningAndKick)
+            if (warningModule && typeof warningModule.handleWarningAndKick === 'function') {
+              warningModule.handleWarningAndKick(api, event);
+            }
+            return; // গালাগালি থাকলে নিচের সাধারণ রেসপন্স করবে না
           }
         }
 
-        // warning.js হ্যান্ডলার রান
-        if (warningHandler) {
-          if (typeof warningHandler === 'function') {
-            warningHandler({ api, event, body });
-          } else if (warningHandler.run) {
-            warningHandler.run({ api, event, body });
-          }
-        }
-
-        // সাধারণ রেসপন্স (ইনবিল্ট)
+        // সাধারণ রেসপন্স / টেস্ট
         const text = body.toLowerCase();
         if (text === 'hi' || text === 'hello' || text === 'হাই' || text === 'হ্যালো') {
-          api.sendMessage('হ্যালো ওস্তাদ! আমি অন আছি, কীভাবে সাহায্য করতে পারি?', threadID);
+          api.sendMessage('হ্যালো ওস্তাদ! আমি অন আছি, কীভাবে সাহায্য করতে পারি?', event.threadID);
         } else if (text === 'ping' || text === 'পিং') {
-          api.sendMessage('Pong! 🏓 বট সম্পূর্ণ সচল আছে।', threadID);
+          api.sendMessage('Pong! 🏓 বট সম্পূর্ণ সচল আছে।', event.threadID);
         } else if (text === 'bot' || text === 'বট') {
-          api.sendMessage('জি ওস্তাদ, বলুন!', threadID);
+          api.sendMessage('জি ওস্তাদ, বলুন!', event.threadID);
         }
       }
     });
