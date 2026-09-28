@@ -14,6 +14,28 @@ app.listen(port, () => {
   console.log(`💡 Web Server running on port ${port}`);
 });
 
+// -------------------------------------------------------------
+// আপনার লোকাল ফাইলসমূহ লোড করা হচ্ছে
+// -------------------------------------------------------------
+let galiHandler, warningHandler, welcomeHandler;
+
+try {
+  if (fs.existsSync(path.join(__dirname, 'gali.js'))) {
+    galiHandler = require('./gali');
+    console.log('✅ gali.js ফাইল সফলভাবে লোড হয়েছে');
+  }
+  if (fs.existsSync(path.join(__dirname, 'warning.js'))) {
+    warningHandler = require('./warning');
+    console.log('✅ warning.js ফাইল সফলভাবে লোড হয়েছে');
+  }
+  if (fs.existsSync(path.join(__dirname, 'welcome.js'))) {
+    welcomeHandler = require('./welcome');
+    console.log('✅ welcome.js ফাইল সফলভাবে লোড হয়েছে');
+  }
+} catch (e) {
+  console.error('❌ ফাইল লোড করতে সমস্যা হয়েছে:', e);
+}
+
 function startBot() {
   let appState;
 
@@ -34,15 +56,14 @@ function startBot() {
         return;
       }
     } else {
-      console.error('❌ appstate.json বা APPSTATE পরিবেশক ভেরিয়েবল পাওয়া যায়নি!');
+      console.error('❌ appstate.json বা APPSTATE ভেরিয়েবল পাওয়া যায়নি!');
       return;
     }
   }
 
-  // FCA Options
   const options = {
     listenEvents: true,
-    selfListen: false, // বট নিজের মেসেজে নিজে উত্তর দেবে না
+    selfListen: false,
     logLevel: 'silent'
   };
 
@@ -61,45 +82,56 @@ function startBot() {
         return;
       }
 
-      // কনসোলে ইভেন্ট টাইপ প্রিন্ট
       console.log(`📥 Event Received: Type = [${event.type}]`);
 
-      // শুধু মেসেজ ইভেন্ট হলে প্রসেস করবে
+      // ১. ওয়েলকাম / নতুন মেম্বার জয়েন ইভেন্ট (welcome.js)
+      if (event.type === 'event' || event.logMessageType === 'log:subscribe') {
+        if (welcomeHandler) {
+          if (typeof welcomeHandler === 'function') {
+            welcomeHandler({ api, event });
+          } else if (welcomeHandler.run) {
+            welcomeHandler.run({ api, event });
+          }
+        }
+      }
+
+      // ২. মেসেজ ইভেন্ট (gali.js, warning.js এবং অন্যান্য)
       if (event.type === 'message' || event.type === 'message_reply') {
         const body = event.body ? event.body.trim() : '';
         const senderID = event.senderID;
         const threadID = event.threadID;
-        const isGroup = event.isGroup;
-
-        console.log(`💬 Message From [${senderID}] in ${isGroup ? 'Group' : 'Inbox'} [${threadID}]: "${body}"`);
 
         if (!body) return;
 
-        const command = body.toLowerCase();
+        console.log(`💬 Message From [${senderID}] in Thread [${threadID}]: "${body}"`);
 
-        // -------------------------------------------------------------
-        // প্রেফিস ছাড়া কমান্ড হুক (Prefix-less Commands)
-        // -------------------------------------------------------------
-
-        if (command === 'hi' || command === 'hello' || command === 'হাই' || command === 'হ্যালো') {
-          api.sendMessage('হ্যালো ওস্তাদ! আমি অন আছি, কীভাবে সাহায্য করতে পারি?', threadID, (sendErr) => {
-            if (sendErr) console.error('❌ রিপ্লাই পাঠাতে ব্যর্থ:', sendErr);
-            else console.log('✅ সফলভাবে রিপ্লাই পাঠানো হয়েছে!');
-          });
-        } 
-        else if (command === 'ping' || command === 'পিং') {
-          api.sendMessage('Pong! 🏓 বট সচল আছে।', threadID, (sendErr) => {
-            if (sendErr) console.error('❌ রিপ্লাই পাঠাতে ব্যর্থ:', sendErr);
-            else console.log('✅ সফলভাবে রিপ্লাই পাঠানো হয়েছে!');
-          });
-        }
-        else if (command === 'bot' || command === 'বট') {
-          api.sendMessage('জি ওস্তাদ, বলুন!', threadID, (sendErr) => {
-            if (sendErr) console.error('❌ রিপ্লাই পাঠাতে ব্যর্থ:', sendErr);
-            else console.log('✅ সফলভাবে রিপ্লাই পাঠানো হয়েছে!');
-          });
+        // gali.js হ্যান্ডলার রান
+        if (galiHandler) {
+          if (typeof galiHandler === 'function') {
+            galiHandler({ api, event, body });
+          } else if (galiHandler.run) {
+            galiHandler.run({ api, event, body });
+          }
         }
 
+        // warning.js হ্যান্ডলার রান
+        if (warningHandler) {
+          if (typeof warningHandler === 'function') {
+            warningHandler({ api, event, body });
+          } else if (warningHandler.run) {
+            warningHandler.run({ api, event, body });
+          }
+        }
+
+        // সাধারণ রেসপন্স (ইনবিল্ট)
+        const text = body.toLowerCase();
+        if (text === 'hi' || text === 'hello' || text === 'হাই' || text === 'হ্যালো') {
+          api.sendMessage('হ্যালো ওস্তাদ! আমি অন আছি, কীভাবে সাহায্য করতে পারি?', threadID);
+        } else if (text === 'ping' || text === 'পিং') {
+          api.sendMessage('Pong! 🏓 বট সম্পূর্ণ সচল আছে।', threadID);
+        } else if (text === 'bot' || text === 'বট') {
+          api.sendMessage('জি ওস্তাদ, বলুন!', threadID);
+        }
       }
     });
   });
