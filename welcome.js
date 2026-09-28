@@ -1,6 +1,10 @@
 function sendWelcomeMessage(api, event) {
-  if (event.logMessageType === 'log:subscribe') {
-    const addedParticipants = event.logMessageData.addedParticipants;
+  // সাবস্ক্রাইব বা মেম্বার যোগ হওয়ার লজিক
+  const logType = event.logMessageType;
+  if (logType === 'log:subscribe' || event.type === 'event') {
+    const addedParticipants = event.logMessageData ? event.logMessageData.addedParticipants : [];
+    if (!addedParticipants || addedParticipants.length === 0) return;
+
     const botID = api.getCurrentUserID();
 
     for (let participant of addedParticipants) {
@@ -27,4 +31,3 @@ function sendWelcomeMessage(api, event) {
 }
 
 module.exports = { sendWelcomeMessage };
-
