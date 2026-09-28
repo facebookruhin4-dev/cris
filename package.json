@@ -6,8 +6,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "cyber-bot-fca": "^1.3.10",
+    "cyber-bot-fca": "latest",
     "express": "^4.18.2"
   }
 }
-
