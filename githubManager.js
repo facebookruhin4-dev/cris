@@ -34,10 +34,11 @@ async function handleCodeUpdate(api, event, body) {
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
     
     const headers = {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'FB-Bot-App'
-    };
+  'Authorization': `Bearer ${GITHUB_TOKEN}`,
+  'Accept': 'application/vnd.github.v3+json',
+  'User-Agent': 'FB-Bot-App'
+};
+
 
     let sha = null;
 
