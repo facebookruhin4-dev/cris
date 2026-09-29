@@ -154,11 +154,11 @@ function startBot() {
         // সাধারণ উত্তর
         const text = body.toLowerCase();
         if (text === 'hi' || text === 'hello' || text === 'হাই' || text === 'হ্যালো') {
-          api.sendMessage('হ্যালো ওস্তাদ! আমি অন আছি, কীভাবে সাহায্য করতে পারি?', event.threadID);
+          api.sendMessage('আসসালামু আলাইকুম🥰 আমি AI আপনাদের গ্রুপ সুন্দর করতে আমি আছি ', event.threadID);
         } else if (text === 'ping' || text === 'পিং') {
           api.sendMessage('Pong! 🏓 বট সম্পূর্ণ সচল আছে।', event.threadID);
         } else if (text === 'bot' || text === 'বট') {
-          api.sendMessage('জি ওস্তাদ, বলুন!', event.threadID);
+          api.sendMessage(' আছি আমি , বলুন!', event.threadID);
         }
       }
     });
