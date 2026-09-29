@@ -3,7 +3,7 @@ const axios = require('axios');
 // সরাসরি টোকেন, রিপোজিটরি ও আপনার ফেসবুক UID
 const GITHUB_TOKEN = "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";
 const GITHUB_REPO = "facebookruhin4-dev/cris"; 
-const ADMIN_UID = "100080838186105"; // আপনার ফেসবুক UID দেওয়া হলো
+const ADMIN_UID = "61591594474456"; // আপনার ফেসবুক UID দেওয়া হলো
 
 async function handleCodeUpdate(api, event, body) {
   const senderID = event.senderID;
