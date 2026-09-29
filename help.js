@@ -1,0 +1,1 @@
+module.exports = { handleHelp: function(api, event, body) { if (body.toLowerCase() === '/help') { api.sendMessage("🚀 আমি হাজির! নতুন ফাইল সফলভাবে কাজ করছে ওস্তাদ!", event.threadID, event.messageID); } } };
