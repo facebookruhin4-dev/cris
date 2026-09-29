@@ -40,7 +40,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // মডিউল লোডিং
-let galiModule, warningModule, welcomeModule;
+let galiModule, warningModule, welcomeModule, photosModule;
 
 try {
   galiModule = require('./gali');
@@ -61,6 +61,13 @@ try {
   console.log('✅ Loaded welcome.js');
 } catch (e) {
   console.error('❌ welcome.js load error:', e.message);
+}
+
+try {
+  photosModule = require('./photos');
+  console.log('✅ Loaded photos.js');
+} catch (e) {
+  console.error('❌ photos.js load error:', e.message);
 }
 
 function startBot() {
@@ -128,7 +135,7 @@ function startBot() {
         }
       }
 
-      // ২. মেসেজ প্রসেসিং (gali.js ও warning.js)
+      // ২. মেসেজ প্রসেসিং (gali.js, warning.js, photos.js)
       if (event.type === 'message' || event.type === 'message_reply') {
         const body = event.body ? event.body.trim() : '';
         if (!body) return;
@@ -148,6 +155,15 @@ function startBot() {
               }
             }
             return;
+          }
+        }
+
+        // AI ফটো জেনারেটর (photos.js)
+        if (photosModule && typeof photosModule.sendPhoto === 'function') {
+          try {
+            photosModule.sendPhoto(api, event, body);
+          } catch (photoErr) {
+            console.error('❌ Error in photos.js execution:', photoErr);
           }
         }
 
