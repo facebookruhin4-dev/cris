@@ -1,1 +1,0 @@
-module.exports = { onMessage: function(api, event, body) { if (body.toLowerCase() === '/help') { api.sendMessage("🚀 আমি হাজির! নতুন ফাইল অটোমেটিক কাজ করছে ওস্তাদ!", event.threadID, event.messageID); } } };
