@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-// আপনার নতুন GitHub Personal Access Token
-const GITHUB_TOKEN = "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";
+// Render Environment Variable থেকে টোকেন নেওয়া হবে
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; 
 const GITHUB_REPO = "facebookruhin4-dev/cris"; 
 const ADMIN_UID = "61591594474456"; // আপনার ফেসবুক UID
 
@@ -12,12 +12,15 @@ async function handleCodeUpdate(api, event, body) {
 
   if (!body.startsWith('/addfile') && !body.startsWith('/updatecode')) return;
 
-  // শুধুমাত্র অ্যাডমিন (আপনি) এই কমান্ড ব্যবহার করতে পারবেন
+  // শুধুমাত্র অ্যাডমিন কমান্ড চালাতে পারবে
   if (senderID !== ADMIN_UID) {
-    return api.sendMessage("❌ ওস্তাদ, শুধুমাত্র বটের অ্যাডমিন কোড আপডেট বা ফাইল তৈরি করতে পারবে!", threadID, messageID);
+    return api.sendMessage("❌ ওস্তাদ, শুধুমাত্র বটের অ্যাডমিন কোড আপডেট করতে পারবে!", threadID, messageID);
   }
 
-  // ফরম্যাট চেক: /addfile filename.js <কোড>
+  if (!GITHUB_TOKEN) {
+    return api.sendMessage("❌ Render-এ GITHUB_TOKEN সেট করা নেই!", threadID, messageID);
+  }
+
   const input = body.replace(/^\/(addfile|updatecode)\s*/i, '').trim();
   const spaceIndex = input.indexOf(' ');
 
@@ -34,20 +37,18 @@ async function handleCodeUpdate(api, event, body) {
     const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
     
     const headers = {
-  'Authorization': `Bearer ${GITHUB_TOKEN}`,
-  'Accept': 'application/vnd.github.v3+json',
-  'User-Agent': 'FB-Bot-App'
-};
-
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'FB-Bot-App'
+    };
 
     let sha = null;
 
-    // ফাইলটি আগে থেকে গিটহাবে আছে কি না চেক করা
     try {
       const getFileRes = await axios.get(url, { headers });
       sha = getFileRes.data.sha;
     } catch (e) {
-      // নতুন ফাইল তৈরি হলে SHA লাগবে না
+      // নতুন ফাইল হলে SHA থাকবে না
     }
 
     const contentEncoded = Buffer.from(fileContent, 'utf-8').toString('base64');
@@ -60,10 +61,9 @@ async function handleCodeUpdate(api, event, body) {
 
     if (sha) payload.sha = sha;
 
-    // GitHub API দিয়ে সরাসরি সেভ করা
     await axios.put(url, payload, { headers });
 
-    api.sendMessage(`✅ '${filePath}' ফাইলটি সফলভাবে GitHub-এ সেভ হয়েছে!\n🔄 Render এখন অটোমেটিক রিবিল্ড নিয়ে বট রিস্টার্ট করবে।`, threadID, messageID);
+    api.sendMessage(`✅ '${filePath}' ফাইলটি সফলভাবে GitHub-এ সেভ হয়েছে!\n🔄 Render এখন অটোমেটিক রিবিল্ড নিয়ে বট আপডেট করে ফেলবে।`, threadID, messageID);
 
   } catch (err) {
     console.error('GitHub Sync Error:', err.response ? err.response.data : err.message);
