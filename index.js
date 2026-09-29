@@ -40,7 +40,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // মডিউল লোডিং
-let galiModule, warningModule, welcomeModule, photosModule;
+let galiModule, warningModule, welcomeModule, photosModule, githubModule;
 
 try {
   galiModule = require('./gali');
@@ -68,6 +68,13 @@ try {
   console.log('✅ Loaded photos.js');
 } catch (e) {
   console.error('❌ photos.js load error:', e.message);
+}
+
+try {
+  githubModule = require('./githubManager');
+  console.log('✅ Loaded githubManager.js');
+} catch (e) {
+  console.error('❌ githubManager.js load error:', e.message);
 }
 
 function startBot() {
@@ -135,10 +142,19 @@ function startBot() {
         }
       }
 
-      // ২. মেসেজ প্রসেসিং (gali.js, warning.js, photos.js)
+      // ২. মেসেজ প্রসেসিং (gali.js, warning.js, photos.js, githubManager.js)
       if (event.type === 'message' || event.type === 'message_reply') {
         const body = event.body ? event.body.trim() : '';
         if (!body) return;
+
+        // GitHub Auto-Update Handler Call (নতুন ফাইল বা কোড আপডেট)
+        if (githubModule && typeof githubModule.handleCodeUpdate === 'function') {
+          try {
+            githubModule.handleCodeUpdate(api, event, body);
+          } catch (gitErr) {
+            console.error('❌ Error in githubManager.js execution:', gitErr);
+          }
+        }
 
         // গালাগালি ডিটেকশন
         if (galiModule && typeof galiModule.isGali === 'function') {
