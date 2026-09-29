@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 // আপনার নতুন GitHub Personal Access Token
-const GITHUB_TOKEN = "Ghp_Z67XGKg6FSUuV7nWpn0RefP6BqEr7n4FNbOp";
+const GITHUB_TOKEN = "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";
 const GITHUB_REPO = "facebookruhin4-dev/cris"; 
 const ADMIN_UID = "61591594474456"; // আপনার ফেসবুক UID
 
