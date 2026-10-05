@@ -40,15 +40,15 @@ class AiBookEngine {
             let score = 0;
 
             for (let word of words) {
-                // কিওয়ার্ড ম্যাচ
+                // কিওয়ার্ড ম্যাচ করলে পয়েন্ট
                 if (book.keywords && book.keywords.some(k => k.toLowerCase().includes(word))) {
                     score += 5;
                 }
-                // টাইটেল ম্যাচ
+                // টাইটেলে ম্যাচ করলে পয়েন্ট
                 if (book.title && book.title.toLowerCase().includes(word)) {
                     score += 3;
                 }
-                // কন্টেন্ট ম্যাচ
+                // মূল লেখার ভেতরে ম্যাচ করলে পয়েন্ট
                 if (book.content && book.content.toLowerCase().includes(word)) {
                     score += 1;
                 }
@@ -63,9 +63,9 @@ class AiBookEngine {
         return { bestMatch, score: highestScore };
     }
 
-    // ৩. কথা জুড়িয়ে উত্তর তৈরি করার ফাংশন
+    // ৩. উত্তর তৈরি করার ফাংশন
     generateReply(userQuery) {
-        this.loadBookData(); // ডাটা তাজা রাখার জন্য রিলোড
+        this.loadBookData(); // নতুন ফাইল আপডেট সাথে সাথে পাওয়ার জন্য
 
         if (!userQuery || userQuery.trim() === "") {
             return "বইয়ের তথ্য জানতে কোনো বিষয় লিখে অনুসন্ধান করুন! (যেমন: পাইথন কি?)";
@@ -84,11 +84,10 @@ class AiBookEngine {
 
 const aiBook = new AiBookEngine();
 
-// সর্বজনীন GoatBot / Mirai / Custom Bot সাপোর্ট স্ট্রাকচার
 module.exports = {
     config: {
         name: "aibook",
-        aliases: ["book", "বই"],
+        aliases: ["book", "বই", "aiboo"],
         version: "1.0.0",
         role: 0,
         author: "Ruhin",
@@ -96,7 +95,7 @@ module.exports = {
         usePrefix: false
     },
 
-    // প্রেফিক্স কমান্ড এক্সেকিউশন (যেমন: /aibook পাইথন)
+    // প্রেফিক্সসহ বা কমান্ড হিসেবে রান করলে
     onStart: async function ({ api, event, args }) {
         const userQuery = args.join(" ");
         const replyMessage = aiBook.generateReply(userQuery);
@@ -108,21 +107,19 @@ module.exports = {
         }
     },
 
-    // কমান্ড ছাড়া সাধারণ চ্যাট এক্সেকিউশন (যেমন শুধু "পাইথন" বললে)
+    // কমান্ড ছাড়া সাধারণ মেসেজের ক্ষেত্রে (Non-prefix search)
     onChat: async function ({ api, event }) {
         if (!event.body) return;
         
         const replyMessage = aiBook.generateReply(event.body);
-        
-        // যদি ডাটাবেজে শক্তিশালী ম্যাচ পায় তবেই রিপ্লাই দেবে
         if (replyMessage) {
             return api.sendMessage(replyMessage, event.threadID, event.messageID);
         }
     },
 
-    // নরমাল এক্সেকিউট সাপোর্ট
+    // সাধারণ এক্সেকিউট সাপোর্ট
     execute(event, api, args) {
-        const userQuery = args ? args.join(" ") : event.body;
+        const userQuery = args && args.length > 0 ? args.join(" ") : event.body;
         const replyMessage = aiBook.generateReply(userQuery);
         if (replyMessage) {
             api.sendMessage(replyMessage, event.threadID, event.messageID);
