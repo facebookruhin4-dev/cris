@@ -83,7 +83,7 @@ function startBot() {
       if (!listErr && list) {
         const group = list.find(thread => thread.isGroup === true);
         if (group) {
-          api.sendMessage("Bot আপডেট succsess 🧑‍🔧", group.threadID);
+          api.sendMessage("এক্টিভেট ....🎉", group.threadID);
         }
       }
     });
