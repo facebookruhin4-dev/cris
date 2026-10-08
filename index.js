@@ -33,18 +33,41 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection:', promise);
 });
 
+// 📁 lockdata.json পড়া ও লেখার ফাংশন
+const LOCK_FILE_PATH = path.join(__dirname, 'lockdata.json');
+
+function getLockedGroupID() {
+  try {
+    if (fs.existsSync(LOCK_FILE_PATH)) {
+      const data = JSON.parse(fs.readFileSync(LOCK_FILE_PATH, 'utf8'));
+      return data.allowedGroupID || null;
+    }
+  } catch (e) {
+    console.error('❌ lockdata.json পড়তে সমস্যা:', e.message);
+  }
+  return null;
+}
+
+function saveLockedGroupID(groupID) {
+  try {
+    const data = { allowedGroupID: groupID };
+    fs.writeFileSync(LOCK_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('❌ lockdata.json সেভ করতে সমস্যা:', e.message);
+  }
+}
+
 // 📁 ডাইনামিকলি সব কমান্ড/মডিউল লোড করার ফাংশন
 function loadModules() {
   const modules = [];
   const files = fs.readdirSync(__dirname);
 
-  // মূল ও বিশেষ ফাইলগুলো বাদ দিয়ে বাকি সব .js ফাইল অটোমেটিক লোড হবে
-  const ignoreFiles = ['index.js', 'package.json', 'package-lock.json', 'appstate.json', 'last_update_chat.json'];
+  const ignoreFiles = ['index.js', 'package.json', 'package-lock.json', 'appstate.json', 'last_update_chat.json', 'lockdata.json'];
 
   files.forEach(file => {
     if (file.endsWith('.js') && !ignoreFiles.includes(file)) {
       try {
-        delete require.cache[require.resolve(`./${file}`)]; // ক্যাশ ক্লিয়ার করা
+        delete require.cache[require.resolve(`./${file}`)];
         const mod = require(`./${file}`);
         modules.push({ name: file, module: mod });
         console.log(`✅ অটো লোড হয়েছে: ${file}`);
@@ -55,9 +78,6 @@ function loadModules() {
   });
   return modules;
 }
-
-// 🔒 গ্লোবাল গ্রুপ আইডি স্টোরেজ (মেমরিতে জমা থাকবে)
-global.allowedGroupID = global.allowedGroupID || null;
 
 function startBot() {
   let appState;
@@ -81,7 +101,6 @@ function startBot() {
 
     console.log('🤖 বট সফলভাবে কানেক্ট হয়েছে!');
 
-    // 🚀 অটো-হাজির মেসেজ (চালু হওয়ার পর ১ম গ্রুপে নোটিফিকেশন যাবে)
     api.getThreadList(10, null, ['INBOX'], (listErr, list) => {
       if (!listErr && list) {
         const group = list.find(thread => thread.isGroup === true);
@@ -98,9 +117,9 @@ function startBot() {
       }
 
       const body = event.body ? event.body.trim() : '';
-
-      // ⚙️ অ্যাডমিন দ্বারা গ্রুপ লক/আনলক হ্যান্ডলার
       const adminUID = "61591594474456";
+
+      // ⚙️ গ্রুপ লক/আনলক হ্যান্ডলার
       if (body.startsWith('/setgroup')) {
         if (event.senderID !== adminUID) {
           return api.sendMessage("❌ ওস্তাদ, শুধুমাত্র বটের অ্যাডমিন গ্রুপ সেট/রিসেট করতে পারবে!", event.threadID, event.messageID);
@@ -109,22 +128,23 @@ function startBot() {
         const command = args[0] ? args[0].toLowerCase() : '';
 
         if (command === 'here') {
-          global.allowedGroupID = event.threadID;
-          return api.sendMessage(`🔒 বট সফলভাবে এই নির্দিষ্ট গ্রুপে (${event.threadID}) লক করা হয়েছে!`, event.threadID, event.messageID);
+          saveLockedGroupID(event.threadID);
+          return api.sendMessage(`🔒 বট সফলভাবে এই নির্দিষ্ট গ্রুপে (${event.threadID}) লক করা হয়েছে এবং lockdata.json-এ সেভ হয়েছে!`, event.threadID, event.messageID);
         } else if (command === 'off' || command === 'reset') {
-          global.allowedGroupID = null;
-          return api.sendMessage("🔓 গ্রুপ লক তুলে দেওয়া হয়েছে! এখন বট সব গ্রুপে স্বাভাবিকভাবে কাজ করবে।", event.threadID, event.messageID);
+          saveLockedGroupID(null);
+          return api.sendMessage("🔓 গ্রুপ লক তুলে দেওয়া হয়েছে এবং lockdata.json খালি করা হয়েছে!", event.threadID, event.messageID);
         } else if (command) {
-          global.allowedGroupID = command;
-          return api.sendMessage(`🔒 গ্রুপ আইডি '${command}' সফলভাবে সেট করা হয়েছে!`, event.threadID, event.messageID);
+          saveLockedGroupID(command);
+          return api.sendMessage(`🔒 গ্রুপ আইডি '${command}' সফলভাবে lockdata.json-এ সেভ করা হয়েছে!`, event.threadID, event.messageID);
         } else {
           return api.sendMessage("⚠️ ব্যবহারের নিয়ম:\n• যে গ্রুপে আছেন সেটা লক করতে: /setgroup here\n• অন্য গ্রুপের আইডি লক করতে: /setgroup <GroupID>\n• লক তুলতে: /setgroup off", event.threadID, event.messageID);
         }
       }
 
-      // 🚫 ফিল্টার: যদি লক করা থাকে এবং মেসেজটি অনুমোদিত গ্রুপের না হয়, তবে সাথে সাথে থামিয়ে দাও
-      if (global.allowedGroupID && String(event.threadID) !== String(global.allowedGroupID)) {
-        return;
+      // 🛑 json থেকে লকড আইডি চেক করা
+      const allowedGroupID = getLockedGroupID();
+      if (allowedGroupID && String(event.threadID) !== String(allowedGroupID)) {
+        return; // অন্য গ্রুপ হলে ইগনোর করবে
       }
 
       // সব ফাইল ডাইনামিক লোড করা হচ্ছে
