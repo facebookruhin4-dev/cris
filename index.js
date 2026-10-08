@@ -33,7 +33,7 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection:', promise);
 });
 
-// 📁 lockdata.json পড়া ও লেখার ফাংশন
+// 📁 lockdata.json ফাইল থেকে ডাটা পড়া ও লেখার ফাংশন
 const LOCK_FILE_PATH = path.join(__dirname, 'lockdata.json');
 
 function getLockedGroupID() {
@@ -62,6 +62,7 @@ function loadModules() {
   const modules = [];
   const files = fs.readdirSync(__dirname);
 
+  // lockdata.json সহ গুরুত্বপূর্ণ ফাইলগুলো ইগনোর করা হচ্ছে
   const ignoreFiles = ['index.js', 'package.json', 'package-lock.json', 'appstate.json', 'last_update_chat.json', 'lockdata.json'];
 
   files.forEach(file => {
@@ -129,7 +130,7 @@ function startBot() {
 
         if (command === 'here') {
           saveLockedGroupID(event.threadID);
-          return api.sendMessage(`🔒 বট সফলভাবে এই নির্দিষ্ট গ্রুপে (${event.threadID}) লক করা হয়েছে এবং lockdata.json-এ সেভ হয়েছে!`, event.threadID, event.messageID);
+          return api.sendMessage(`🔒 বট সফলভাবে এই নির্দিষ্ট গ্রুপে (${event.threadID}) লক করা হয়েছে এবং lockdata.json-এ সেভ করা হয়েছে!`, event.threadID, event.messageID);
         } else if (command === 'off' || command === 'reset') {
           saveLockedGroupID(null);
           return api.sendMessage("🔓 গ্রুপ লক তুলে দেওয়া হয়েছে এবং lockdata.json খালি করা হয়েছে!", event.threadID, event.messageID);
@@ -141,10 +142,10 @@ function startBot() {
         }
       }
 
-      // 🛑 json থেকে লকড আইডি চেক করা
+      // 🛑 lockdata.json থেকে গ্রুপ ফিল্টার চেক
       const allowedGroupID = getLockedGroupID();
       if (allowedGroupID && String(event.threadID) !== String(allowedGroupID)) {
-        return; // অন্য গ্রুপ হলে ইগনোর করবে
+        return; // অন্য গ্রুপ হলে এখানেই কাজ থেমে যাবে
       }
 
       // সব ফাইল ডাইনামিক লোড করা হচ্ছে
